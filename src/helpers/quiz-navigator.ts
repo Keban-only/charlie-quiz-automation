@@ -215,16 +215,11 @@ export class QuizNavigator {
     const phoneSel = 'input[type="tel"], input[name*="phone"], input[placeholder*="телефон"], input[placeholder*="phone"]';
     if (await this.isVisible(phoneSel)) {
       const phoneInput = this.page.locator(phoneSel).first();
-      const currentValue = await phoneInput.inputValue();
-      const digits = currentValue.replace(/\D/g, '');
-
-      if (digits.length < 10) {
-        await phoneInput.click();
-        await this.page.waitForTimeout(200);
-        const localNumber = this.userData.phone.replace(/^\+?380?/, '');
-        await phoneInput.pressSequentially(localNumber, { delay: 40 });
-        filled = true;
-      }
+      await phoneInput.fill(this.userData.phone);
+      await this.page.waitForTimeout(200);
+      await this.page.keyboard.press('Escape');
+      await this.page.waitForTimeout(200);
+      filled = true;
     }
 
     const nameSel = 'input[name*="child"], input[name*="name"], input[placeholder*="ім\'я"], input[placeholder*="Ім\'я"], input[placeholder*="name"]';
