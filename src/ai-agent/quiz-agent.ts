@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import Anthropic from '@anthropic-ai/sdk';
+import AnthropicBedrock from '@anthropic-ai/bedrock-sdk';
 import { TestUserData } from '../helpers/data-generator';
 
 export interface AgentResult {
@@ -41,29 +41,26 @@ RULES:
 IMPORTANT: Respond ONLY with a JSON object, no other text. The JSON must have this structure:
 {
   "thought": "brief reasoning about current state",
-  "action": { "type": "click"|"fill"|"done"|"wait", "selector": "CSS selector", "value": "text to type" }
+  "action": { "type": "click"|"fill"|"done"|"wait", "selector": "...", "value": "text to type" }
 }
 
-For "click": provide a CSS selector or text-based selector.
-For "fill": provide selector and value.
+For "click": use ONLY the exact visible button text as selector. Examples: "7", "Продовжити", "Ніколи не вивчав". Do NOT use CSS selectors, data-testid, or complex queries. Just the button text.
+For "fill": use input type as selector: "email", "tel", "text". Provide value.
 For "done": provide reason.
 For "wait": no additional fields needed (use when page is loading).`;
 
 export class QuizAgent {
   private page: Page;
-  private client: Anthropic;
+  private client: AnthropicBedrock;
   private userData: TestUserData;
   private maxIterations: number;
   private actionLog: AgentAction[] = [];
 
   constructor(page: Page, userData: TestUserData, maxIterations = 30) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY environment variable is required for AI agent');
-    }
-
     this.page = page;
-    this.client = new Anthropic({ apiKey });
+    this.client = new AnthropicBedrock({
+      awsRegion: process.env.AWS_REGION || 'us-east-1',
+    });
     this.userData = userData;
     this.maxIterations = maxIterations;
   }
@@ -89,7 +86,7 @@ export class QuizAgent {
           result: `Error: ${error.message}`,
         });
 
-        if (error.message.includes('API') || error.message.includes('rate limit')) {
+        if (error.message.includes('throttl') || error.message.includes('rate')) {
           await this.page.waitForTimeout(5000);
         }
       }
@@ -123,7 +120,7 @@ Test data to use when filling forms:
 What action should I take? Remember: respond ONLY with JSON.`;
 
     const response = await this.client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [
@@ -222,16 +219,26 @@ What action should I take? Remember: respond ONLY with JSON.`;
 
   private async executeClick(selector: string): Promise<string> {
     try {
+      const normalized = selector.replace(/:contains\(['"]?([^'")\]]+)['"]?\)/g, ':has-text("$1")');
+
+      if (normalized.includes(':has-text') || normalized.includes('[') || normalized.startsWith('.') || normalized.startsWith('#')) {
+        const element = this.page.locator(normalized).first();
+        if (await element.isVisible({ timeout: 2000 })) {
+          await element.click();
+          return `clicked: ${normalized}`;
+        }
+      }
+
       const textBtn = this.page.locator(`button:has-text("${selector}")`).first();
       if (await textBtn.isVisible({ timeout: 2000 })) {
         await textBtn.click();
-        return `clicked button with text: ${selector}`;
+        return `clicked button: ${selector}`;
       }
 
-      const element = this.page.locator(selector).first();
-      if (await element.isVisible({ timeout: 2000 })) {
-        await element.click();
-        return `clicked: ${selector}`;
+      const anyClickable = this.page.locator(`[role="button"]:has-text("${selector}"), a:has-text("${selector}")`).first();
+      if (await anyClickable.isVisible({ timeout: 1000 })) {
+        await anyClickable.click();
+        return `clicked element: ${selector}`;
       }
 
       const fuzzy = this.page.locator(`text="${selector}"`).first();
@@ -248,15 +255,29 @@ What action should I take? Remember: respond ONLY with JSON.`;
 
   private async executeFill(selector: string, value: string): Promise<string> {
     try {
-      const element = this.page.locator(selector).first();
+      const typeMap: Record<string, string> = {
+        email: 'input[type="email"], input[name*="email"], input[placeholder*="mail"]',
+        tel: 'input[type="tel"], input[name*="phone"], input[placeholder*="телефон"]',
+        text: 'input[type="text"]:visible, input:not([type]):visible',
+        name: 'input[name*="name"], input[placeholder*="ім\'я"], input[placeholder*="name"]',
+      };
+
+      const locatorStr = typeMap[selector.toLowerCase()] || selector;
+      const element = this.page.locator(locatorStr).first();
       if (await element.isVisible({ timeout: 2000 })) {
-        await element.fill(value);
+        if (selector.toLowerCase() === 'tel') {
+          await element.click({ clickCount: 3 });
+          await element.press('Backspace');
+          await element.pressSequentially(value.replace(/^\+380/, ''), { delay: 50 });
+        } else {
+          await element.fill(value);
+        }
         return `filled ${selector} with ${value}`;
       }
 
-      const input = this.page.locator(`input:visible`).first();
-      if (await input.isVisible({ timeout: 1000 })) {
-        await input.fill(value);
+      const fallback = this.page.locator('input:visible').first();
+      if (await fallback.isVisible({ timeout: 1000 })) {
+        await fallback.fill(value);
         return `filled first visible input with ${value}`;
       }
 

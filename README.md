@@ -26,8 +26,9 @@ cp .env.example .env
 
 | Змінна | Обов'язкова | Опис |
 |--------|------------|------|
-| `ANTHROPIC_API_KEY` | Тільки для Variant 2 | API-ключ Anthropic для Claude |
-| `ADMIN_BEARER_TOKEN` | Ні | Токен адмін-панелі для API-верифікації |
+| `AWS_ACCESS_KEY_ID` | Тільки для Variant 2 | AWS Access Key (Claude через Bedrock) |
+| `AWS_SECRET_ACCESS_KEY` | Тільки для Variant 2 | AWS Secret Key |
+| `AWS_REGION` | Ні | AWS регіон (default: us-east-1) |
 | `BASE_URL` | Ні | Override базового URL (default: stage.allright.com) |
 
 ## Запуск тестів
@@ -44,9 +45,12 @@ npm run test:business
 npx playwright test tests/business-result.spec.ts --headed
 ```
 
-### Variant 2 — AI-агент (потрібен ANTHROPIC_API_KEY)
+### Variant 2 — AI-агент (потрібні AWS credentials для Bedrock)
 
 ```bash
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+export AWS_REGION=us-east-1
 npm run test:ai-agent
 ```
 
