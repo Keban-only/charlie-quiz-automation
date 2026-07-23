@@ -62,10 +62,11 @@ test.describe('Charlie Quiz — Business Result Verification', () => {
     await page.goto(QUIZ_URL, { waitUntil: 'networkidle' });
     await page.waitForTimeout(3000);
 
-    const ageButton = page.locator('button:has-text("10")');
-    if (await ageButton.isVisible({ timeout: 5000 })) {
-      await ageButton.click();
-      await page.waitForTimeout(1000);
+    const ageButtons = page.locator('button:has-text("10"), button:has-text("11"), button:has-text("12")');
+    const firstVisible = ageButtons.first();
+    if (await firstVisible.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await firstVisible.click();
+      await page.waitForTimeout(1500);
     }
 
     const navigator = new QuizNavigator(page, testUser);
