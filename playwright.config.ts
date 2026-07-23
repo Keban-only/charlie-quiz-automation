@@ -19,6 +19,10 @@ export default defineConfig({
     video: 'retain-on-failure',
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
+    locale: 'uk-UA',
+    timezoneId: 'Europe/Kyiv',
+    geolocation: { latitude: 50.4501, longitude: 30.5234 },
+    permissions: ['geolocation'],
   },
 
   projects: [

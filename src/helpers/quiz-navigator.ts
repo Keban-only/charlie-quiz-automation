@@ -163,50 +163,11 @@ export class QuizNavigator {
   }
 
   private async handleModal(): Promise<string | null> {
-    const modalSelectors = [
-      '[role="dialog"]',
-      '[class*="modal"]',
-      '[class*="overlay"]',
-      '[class*="popup"]',
-      '[class*="Modal"]',
-      '[class*="Overlay"]',
-    ];
-
-    for (const selector of modalSelectors) {
-      try {
-        const modal = this.page.locator(selector).first();
-        if (await modal.isVisible({ timeout: 300 })) {
-          const modalItems = modal.locator('button, [role="button"], div[class*="card"], div[class*="option"], li, a');
-          const count = await modalItems.count();
-
-          for (let i = 0; i < count; i++) {
-            const item = modalItems.nth(i);
-            const text = (await item.textContent())?.trim() || '';
-            if (text.includes('мати') || text.includes('батько') || text.includes('parent')) {
-              await item.click();
-              return 'modal-selected-parent';
-            }
-          }
-
-          for (let i = 0; i < count; i++) {
-            const item = modalItems.nth(i);
-            const text = (await item.textContent())?.trim() || '';
-            if (!text || text === '×' || text === 'X' || text === '✕' || text.length <= 1) continue;
-            if (text.toLowerCase().includes('закрити') || text.toLowerCase().includes('close')) continue;
-            await item.click();
-            return `modal-selected: ${text.substring(0, 30)}`;
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-
     try {
       const parentOption = this.page.locator('text="Я — мати або батько"').first();
       if (await parentOption.isVisible({ timeout: 300 })) {
         await parentOption.click();
-        return 'clicked-parent-option-directly';
+        return 'clicked-parent-option';
       }
     } catch {}
 
@@ -214,7 +175,28 @@ export class QuizNavigator {
       const childOption = this.page.locator('text="Я — дитина"').first();
       if (await childOption.isVisible({ timeout: 300 })) {
         await childOption.click();
-        return 'clicked-child-option-directly';
+        return 'clicked-child-option';
+      }
+    } catch {}
+
+    const modal = this.page.locator('[role="dialog"]').first();
+    try {
+      if (await modal.isVisible({ timeout: 300 })) {
+        const modalText = await modal.textContent() || '';
+        if (modalText.includes('+48') || modalText.includes('+380') || modalText.includes('+1')) {
+          await this.page.keyboard.press('Escape');
+          return null;
+        }
+        const modalItems = modal.locator('button, [role="button"]');
+        const count = await modalItems.count();
+        for (let i = 0; i < count; i++) {
+          const item = modalItems.nth(i);
+          const text = (await item.textContent())?.trim() || '';
+          if (!text || text === '×' || text.length <= 1) continue;
+          if (text.toLowerCase().includes('закрити') || text.toLowerCase().includes('close')) continue;
+          await item.click();
+          return `modal-selected: ${text.substring(0, 30)}`;
+        }
       }
     } catch {}
 
@@ -234,12 +216,13 @@ export class QuizNavigator {
     if (await this.isVisible(phoneSel)) {
       const phoneInput = this.page.locator(phoneSel).first();
       const currentValue = await phoneInput.inputValue();
+      const digits = currentValue.replace(/\D/g, '');
 
-      if (!currentValue || currentValue.replace(/\D/g, '').length < 9) {
-        await phoneInput.click({ clickCount: 3 });
-        await phoneInput.press('Backspace');
-        const uniqueNumber = '9' + String(Date.now()).slice(-8);
-        await phoneInput.pressSequentially(uniqueNumber, { delay: 30 });
+      if (digits.length < 10) {
+        await phoneInput.click();
+        await this.page.waitForTimeout(200);
+        const localNumber = this.userData.phone.replace(/^\+?380?/, '');
+        await phoneInput.pressSequentially(localNumber, { delay: 40 });
         filled = true;
       }
     }
