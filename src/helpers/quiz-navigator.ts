@@ -35,7 +35,7 @@ export class QuizNavigator {
       stepNumber++;
 
       try {
-        await this.page.waitForTimeout(1500);
+        await this.page.waitForTimeout(800);
 
         const currentUrl = this.page.url();
         const currentPath = new URL(currentUrl).pathname;
@@ -93,7 +93,7 @@ export class QuizNavigator {
     const selectedOption = await this.clickQuizOption();
 
     if (filledInputs || selectedOption) {
-      await this.page.waitForTimeout(500);
+      await this.page.waitForTimeout(300);
       const newPath = new URL(this.page.url()).pathname;
       if (newPath !== currentPath) {
         return selectedOption ? 'selected-option-auto-advanced' : 'filled-and-advanced';
@@ -191,11 +191,9 @@ export class QuizNavigator {
       if (!currentValue || currentValue.replace(/\D/g, '').length < 9) {
         await phoneInput.click({ clickCount: 3 });
         await phoneInput.press('Backspace');
-        await this.page.waitForTimeout(200);
-
         const uniqueNumber = '9' + String(Date.now()).slice(-8);
-        await phoneInput.pressSequentially(uniqueNumber, { delay: 50 });
-        await this.page.waitForTimeout(500);
+        await phoneInput.pressSequentially(uniqueNumber, { delay: 30 });
+        await this.page.waitForTimeout(300);
         filled = true;
       }
     }
@@ -246,13 +244,13 @@ export class QuizNavigator {
         if (await btn.isVisible({ timeout: 800 })) {
           try {
             await btn.waitFor({ state: 'attached', timeout: 500 });
-            for (let attempt = 0; attempt < 6; attempt++) {
+            for (let attempt = 0; attempt < 4; attempt++) {
               if (!(await btn.isDisabled())) {
                 await btn.click();
-                await this.page.waitForTimeout(500);
+                await this.page.waitForTimeout(300);
                 return true;
               }
-              await this.page.waitForTimeout(500);
+              await this.page.waitForTimeout(300);
             }
           } catch {}
         }
@@ -281,7 +279,7 @@ export class QuizNavigator {
         if (await btn.isDisabled()) continue;
 
         await btn.click();
-        await this.page.waitForTimeout(500);
+        await this.page.waitForTimeout(300);
         return true;
       } catch {
         continue;
@@ -295,7 +293,7 @@ export class QuizNavigator {
       const btn = this.page.locator('button:visible:not([disabled])').first();
       if (await btn.isVisible({ timeout: 1000 })) {
         await btn.click();
-        await this.page.waitForTimeout(500);
+        await this.page.waitForTimeout(300);
         return true;
       }
     } catch {}

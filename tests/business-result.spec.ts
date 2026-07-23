@@ -19,7 +19,7 @@ test.describe('Charlie Quiz — Business Result Verification', () => {
     verifier.startCapturingNetworkCalls();
 
     await page.goto(QUIZ_URL, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1500);
 
     const navigator = new QuizNavigator(page, testUser);
     const result = await navigator.navigate();
@@ -60,7 +60,7 @@ test.describe('Charlie Quiz — Business Result Verification', () => {
     verifier.startCapturingNetworkCalls();
 
     await page.goto(QUIZ_URL, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1500);
 
     const ageButtons = page.locator('button:has-text("10"), button:has-text("11"), button:has-text("12")');
     const firstVisible = ageButtons.first();
