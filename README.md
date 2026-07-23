@@ -102,12 +102,19 @@ npm run explore
 
 ### AI-агент (quiz-agent.ts)
 
+Використовує Claude через **AWS Bedrock** (а не прямий Anthropic API), що дозволяє:
+- Використовувати існуючі AWS credentials без окремого API-ключа
+- Інтегруватися з корпоративним AWS-акаунтом
+- Контролювати витрати через AWS billing
+
 На кожній ітерації:
 1. Робить screenshot сторінки
 2. Відправляє в Claude (vision) з інструкцією "пройди квіз"
 3. Claude повертає дію (click/fill/done)
 4. Playwright виконує дію
 5. Повторює до success або max iterations
+
+Модель за замовчуванням — Claude Haiku 4.5 (оптимальний баланс швидкість/вартість). Можна змінити через `BEDROCK_MODEL_ID`.
 
 ### Result Verifier (result-verifier.ts)
 
@@ -122,11 +129,25 @@ npm run explore
 3. Тестові дані (@example.com) не блокуються системою
 4. Структура квізу: послідовність кроків з кнопками/інпутами → фінальний екран
 
+## Чому Bedrock, а не прямий Anthropic API
+
+AI-агент підключається до Claude через AWS Bedrock замість прямого `api.anthropic.com`:
+
+1. **Не потребує окремого платного API-ключа** — працює з існуючими AWS credentials
+2. **Корпоративна інтеграція** — витрати йдуть через AWS billing, можна контролювати через IAM policies
+3. **Той самий Claude** — Bedrock надає доступ до тих самих моделей (Haiku, Sonnet, Opus)
+4. **Простіше для CI/CD** — AWS credentials вже є в більшості CI-систем
+
+Якщо потрібна інша модель (наприклад, Sonnet для кращої якості навігації):
+```bash
+export BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+npm run test:ai-agent
+```
+
 ## Що б зробив далі
 
 - API-верифікація через адмін-панель (з Bearer token)
 - Автоматичний cleanup тестових записів
-- CI/CD інтеграція (GitHub Actions з cron schedule)
 - Паралельний запуск для покриття різних A/B-варіантів
 - Alerting в Slack при падінні тестів
 - Метрики та трейсінг (час проходження, кількість кроків)
