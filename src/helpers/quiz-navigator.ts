@@ -108,10 +108,6 @@ export class QuizNavigator {
     const modalAction = await this.handleModal();
     if (modalAction) return modalAction;
 
-    if (await this.clickContinueButton()) {
-      return 'clicked-continue';
-    }
-
     const filledInputs = await this.fillInputs();
 
     if (filledInputs) {
@@ -120,6 +116,10 @@ export class QuizNavigator {
       if (await this.clickContinueButton()) return 'filled-inputs-and-continued';
       if (await this.clickSubmitOrNext()) return 'filled-and-submitted';
       return 'filled-inputs';
+    }
+
+    if (await this.clickContinueButton()) {
+      return 'clicked-continue';
     }
 
     const selectedOption = await this.clickQuizOption();
