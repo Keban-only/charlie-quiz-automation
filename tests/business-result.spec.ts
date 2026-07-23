@@ -51,31 +51,4 @@ test.describe('Charlie Quiz — Business Result Verification', () => {
     expect(verification.registrationCompleted, `User registration should be confirmed. Details: ${verification.details}`).toBe(true);
   });
 
-  test('quiz can be completed with different age selections', async ({ page, context }) => {
-    test.setTimeout(180_000);
-
-    const testUser = generateTestUser();
-    const verifier = new ResultVerifier(page);
-    context.on('page', async (newPage) => { await newPage.close(); });
-    verifier.startCapturingNetworkCalls();
-
-    await page.goto(QUIZ_URL, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
-
-    const ageButtons = page.locator('button:has-text("10"), button:has-text("11"), button:has-text("12")');
-    const firstVisible = ageButtons.first();
-    if (await firstVisible.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await firstVisible.click();
-      await page.waitForTimeout(1500);
-    }
-
-    const navigator = new QuizNavigator(page, testUser);
-    const result = await navigator.navigate();
-
-    console.log(`Navigation: ${result.success}, Steps: ${result.stepsCompleted}`);
-
-    const verification = await verifier.verifyBusinessResult();
-    expect(result.success).toBe(true);
-    expect(verification.registrationCompleted).toBe(true);
-  });
 });

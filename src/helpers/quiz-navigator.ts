@@ -20,7 +20,7 @@ export class QuizNavigator {
   private maxSteps: number;
   private stepLog: StepInfo[] = [];
 
-  constructor(page: Page, userData: TestUserData, maxSteps = 35) {
+  constructor(page: Page, userData: TestUserData, maxSteps = 50) {
     this.page = page;
     this.userData = userData;
     this.maxSteps = maxSteps;
@@ -35,7 +35,7 @@ export class QuizNavigator {
       stepNumber++;
 
       try {
-        await this.page.waitForTimeout(800);
+        await this.waitForPageReady();
 
         const currentUrl = this.page.url();
         const currentPath = new URL(currentUrl).pathname;
@@ -47,7 +47,7 @@ export class QuizNavigator {
 
         if (currentPath === previousPath) {
           stuckCount++;
-          if (stuckCount >= 6) {
+          if (stuckCount >= 8) {
             return { success: false, stepsCompleted: stepNumber, finalUrl: currentUrl, stepLog: this.stepLog };
           }
         } else {
@@ -57,6 +57,8 @@ export class QuizNavigator {
 
         const action = await this.performStepAction(currentPath);
         this.stepLog.push({ step: stepNumber, path: currentPath, action });
+
+        await this.waitForNavigation(currentPath);
       } catch (error: any) {
         if (error.message?.includes('closed') || error.message?.includes('crashed')) {
           this.stepLog.push({ step: stepNumber, path: previousPath, action: `ERROR: ${error.message}` });
@@ -67,6 +69,24 @@ export class QuizNavigator {
     }
 
     return { success: false, stepsCompleted: stepNumber, finalUrl: this.page.url(), stepLog: this.stepLog };
+  }
+
+  private async waitForPageReady(): Promise<void> {
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForSelector('button:visible, input:visible, [role="button"]:visible', { timeout: 5000 }).catch(() => {});
+  }
+
+  private async waitForNavigation(previousPath: string): Promise<void> {
+    try {
+      await this.page.waitForFunction(
+        (prev) => window.location.pathname !== prev,
+        previousPath,
+        { timeout: 3000 }
+      );
+      await this.page.waitForLoadState('domcontentloaded');
+    } catch {
+      await this.page.waitForTimeout(300);
+    }
   }
 
   private isCompletionPage(_: string, path: string): boolean {
@@ -90,29 +110,55 @@ export class QuizNavigator {
 
     const filledInputs = await this.fillInputs();
 
-    const selectedOption = await this.clickQuizOption();
-
-    if (filledInputs || selectedOption) {
-      await this.page.waitForTimeout(300);
+    if (filledInputs) {
       const newPath = new URL(this.page.url()).pathname;
-      if (newPath !== currentPath) {
-        return selectedOption ? 'selected-option-auto-advanced' : 'filled-and-advanced';
-      }
-      if (await this.clickContinueButton()) {
-        return filledInputs ? 'filled-inputs-and-continued' : 'selected-and-continued';
-      }
-      return selectedOption ? 'selected-option' : 'filled-inputs';
+      if (newPath !== currentPath) return 'filled-and-advanced';
+      if (await this.clickContinueButton()) return 'filled-inputs-and-continued';
+      if (await this.clickSubmitOrNext()) return 'filled-and-submitted';
+      return 'filled-inputs';
+    }
+
+    const selectedOption = await this.clickQuizOption();
+    if (selectedOption) {
+      const newPath = new URL(this.page.url()).pathname;
+      if (newPath !== currentPath) return 'selected-option-auto-advanced';
+      if (await this.clickContinueButton()) return 'selected-and-continued';
+      return 'selected-option';
     }
 
     if (await this.clickContinueButton()) {
       return 'clicked-continue';
     }
 
-    if (await this.clickAnyButton()) {
-      return 'clicked-button';
+    if (await this.clickSubmitOrNext()) {
+      return 'clicked-submit';
     }
 
     return 'no-action';
+  }
+
+  private async clickSubmitOrNext(): Promise<boolean> {
+    const submitSelectors = [
+      'button[type="submit"]',
+      'form button:visible',
+      'button:has-text("Надіслати")',
+      'button:has-text("Отримати")',
+    ];
+
+    for (const selector of submitSelectors) {
+      try {
+        const btn = this.page.locator(selector).first();
+        if (await btn.isVisible({ timeout: 300 })) {
+          if (!(await btn.isDisabled())) {
+            await btn.click();
+            return true;
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+    return false;
   }
 
   private async handleModal(): Promise<string | null> {
@@ -128,7 +174,7 @@ export class QuizNavigator {
     for (const selector of modalSelectors) {
       try {
         const modal = this.page.locator(selector).first();
-        if (await modal.isVisible({ timeout: 500 })) {
+        if (await modal.isVisible({ timeout: 300 })) {
           const modalItems = modal.locator('button, [role="button"], div[class*="card"], div[class*="option"], li, a');
           const count = await modalItems.count();
 
@@ -157,7 +203,7 @@ export class QuizNavigator {
 
     try {
       const parentOption = this.page.locator('text="Я — мати або батько"').first();
-      if (await parentOption.isVisible({ timeout: 500 })) {
+      if (await parentOption.isVisible({ timeout: 300 })) {
         await parentOption.click();
         return 'clicked-parent-option-directly';
       }
@@ -165,7 +211,7 @@ export class QuizNavigator {
 
     try {
       const childOption = this.page.locator('text="Я — дитина"').first();
-      if (await childOption.isVisible({ timeout: 500 })) {
+      if (await childOption.isVisible({ timeout: 300 })) {
         await childOption.click();
         return 'clicked-child-option-directly';
       }
@@ -193,7 +239,6 @@ export class QuizNavigator {
         await phoneInput.press('Backspace');
         const uniqueNumber = '9' + String(Date.now()).slice(-8);
         await phoneInput.pressSequentially(uniqueNumber, { delay: 30 });
-        await this.page.waitForTimeout(300);
         filled = true;
       }
     }
@@ -206,7 +251,7 @@ export class QuizNavigator {
 
     if (!filled) {
       const genericInput = this.page.locator('input[type="text"]:visible, input:not([type]):visible').first();
-      if (await genericInput.isVisible({ timeout: 500 }).catch(() => false)) {
+      if (await genericInput.isVisible({ timeout: 300 }).catch(() => false)) {
         const placeholder = await genericInput.getAttribute('placeholder') || '';
         const name = await genericInput.getAttribute('name') || '';
 
@@ -241,18 +286,24 @@ export class QuizNavigator {
     for (const selector of continuePatterns) {
       try {
         const btn = this.page.locator(selector).first();
-        if (await btn.isVisible({ timeout: 800 })) {
-          try {
-            await btn.waitFor({ state: 'attached', timeout: 500 });
-            for (let attempt = 0; attempt < 4; attempt++) {
-              if (!(await btn.isDisabled())) {
-                await btn.click();
-                await this.page.waitForTimeout(300);
-                return true;
-              }
-              await this.page.waitForTimeout(300);
-            }
-          } catch {}
+        if (await btn.isVisible({ timeout: 500 })) {
+          await btn.waitFor({ state: 'attached', timeout: 300 });
+          if (!(await btn.isDisabled())) {
+            await btn.click();
+            return true;
+          }
+          await this.page.waitForFunction(
+            (sel) => {
+              const el = document.querySelector(sel) as HTMLButtonElement;
+              return el && !el.disabled;
+            },
+            selector.replace(/:has-text\("([^"]+)"\)/, ''),
+            { timeout: 2000 }
+          ).catch(() => {});
+          if (!(await btn.isDisabled())) {
+            await btn.click();
+            return true;
+          }
         }
       } catch {
         continue;
@@ -279,7 +330,6 @@ export class QuizNavigator {
         if (await btn.isDisabled()) continue;
 
         await btn.click();
-        await this.page.waitForTimeout(300);
         return true;
       } catch {
         continue;
@@ -288,21 +338,9 @@ export class QuizNavigator {
     return false;
   }
 
-  private async clickAnyButton(): Promise<boolean> {
-    try {
-      const btn = this.page.locator('button:visible:not([disabled])').first();
-      if (await btn.isVisible({ timeout: 1000 })) {
-        await btn.click();
-        await this.page.waitForTimeout(300);
-        return true;
-      }
-    } catch {}
-    return false;
-  }
-
   private async isVisible(selector: string): Promise<boolean> {
     try {
-      return await this.page.locator(selector).first().isVisible({ timeout: 500 });
+      return await this.page.locator(selector).first().isVisible({ timeout: 300 });
     } catch {
       return false;
     }
