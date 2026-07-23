@@ -1,0 +1,23 @@
+{
+  "name": "charlie-quiz-automation",
+  "version": "1.0.0",
+  "description": "Automated testing for Charlie registration quiz with adaptive navigation and AI-agent approach",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:business": "npx playwright test tests/business-result.spec.ts",
+    "test:ai-agent": "npx playwright test tests/ai-agent-flow.spec.ts",
+    "test:headed": "npx playwright test --headed",
+    "explore": "npx ts-node exploration/explore-quiz.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.11.0",
+    "dotenv": "^16.3.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.32.0"
+  }
+}
