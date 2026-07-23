@@ -108,6 +108,10 @@ export class QuizNavigator {
     const modalAction = await this.handleModal();
     if (modalAction) return modalAction;
 
+    if (await this.clickContinueButton()) {
+      return 'clicked-continue';
+    }
+
     const filledInputs = await this.fillInputs();
 
     if (filledInputs) {
@@ -120,14 +124,11 @@ export class QuizNavigator {
 
     const selectedOption = await this.clickQuizOption();
     if (selectedOption) {
+      await this.page.waitForTimeout(500);
       const newPath = new URL(this.page.url()).pathname;
       if (newPath !== currentPath) return 'selected-option-auto-advanced';
       if (await this.clickContinueButton()) return 'selected-and-continued';
       return 'selected-option';
-    }
-
-    if (await this.clickContinueButton()) {
-      return 'clicked-continue';
     }
 
     if (await this.clickSubmitOrNext()) {
