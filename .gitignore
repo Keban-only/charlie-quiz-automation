@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+test-results/
+playwright-report/
+exploration/screenshots/
+exploration/exploration-report.json
+blob-report/
+.DS_Store
